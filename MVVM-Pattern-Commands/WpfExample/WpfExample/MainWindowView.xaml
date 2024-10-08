@@ -5,8 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfExample"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="MainWindow" Height="350" Width="525">
 
+    <Window.DataContext>
+        <local:MainWindowViewModel/>
+    </Window.DataContext>
+
+    <Grid>
+        <Button Width="100" Height="100" Content="{Binding ButtonContent}">
+            
+        </Button>
     </Grid>
 </Window>
