@@ -1,4 +1,5 @@
 # Basic MVVM and ICommand Usage Example
+* https://tuts.heomi.net/basic-mvvm-and-icommand-usage-example/
 
 # Introduction
 
@@ -103,3 +104,216 @@ Now if we run the application, we can see that the button content is set to `str
 ![View_Clickme_Button](./images/View-ClickMe-Button.jpg)
 
 So this interprets that our MVVM is working properly.
+
+
+# Now We Move In To the ICommand Interface
+
+Now, let’s try to add click functionality to the button using Commands in WPF.
+
+Commands provide a mechanism for the view to update the model in the MVVM architecture.
+
+First, we have a look at the `ICommand` interface.
+
+```cs
+bool CanExecute(object parameter);
+void Execute(object parameter);
+event EventHandler CanExecuteChanged;
+```
+
+We will create a sample application that displays a message box with message “HI” when a button is clicked and we will add another button that toggles whether the Hi button can be clicked.
+
+We create a class called `RelayCommand` which implements `ICommand` interface. This class acts as Enhancement for the `ICommand` and extracts the boiler plate code to a separate class.
+
+```cs
+public class RelayCommand : ICommand
+   {
+       private Action<object> execute;
+
+       private Predicate<object> canExecute;
+
+       private event EventHandler CanExecuteChangedInternal;
+
+       public RelayCommand(Action<object> execute)
+           : this(execute, DefaultCanExecute)
+       {
+       }
+
+       public RelayCommand(Action<object> execute, Predicate<object> canExecute)
+       {
+           if (execute == null)
+           {
+               throw new ArgumentNullException("execute");
+           }
+
+           if (canExecute == null)
+           {
+               throw new ArgumentNullException("canExecute");
+           }
+
+           this.execute = execute;
+           this.canExecute = canExecute;
+       }
+
+       public event EventHandler CanExecuteChanged
+       {
+           add
+           {
+               CommandManager.RequerySuggested += value;
+               this.CanExecuteChangedInternal += value;
+           }
+
+           remove
+           {
+               CommandManager.RequerySuggested -= value;
+               this.CanExecuteChangedInternal -= value;
+           }
+       }
+
+       public bool CanExecute(object parameter)
+       {
+           return this.canExecute != null && this.canExecute(parameter);
+       }
+
+       public void Execute(object parameter)
+       {
+           this.execute(parameter);
+       }
+
+       public void OnCanExecuteChanged()
+       {
+           EventHandler handler = this.CanExecuteChangedInternal;
+           if (handler != null)
+           {
+               //DispatcherHelper.BeginInvokeOnUIThread(() => handler.Invoke(this, EventArgs.Empty));
+               handler.Invoke(this, EventArgs.Empty);
+           }
+       }
+
+       public void Destroy()
+       {
+           this.canExecute = _ => false;
+           this.execute = _ => { return; };
+       }
+
+       private static bool DefaultCanExecute(object parameter)
+       {
+           return true;
+       }
+   }
+```
+
+The `CommandManager.RequerySuggested` is responsible for enabling and disabling of "Click to Hii" button.
+
+**TheView**
+
+```xml
+<Window x:Class="WpfExample.MainWindowView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MainWindow" Height="350" Width="525"
+        xmlns:local="clr-namespace:WpfExample">
+
+    <Window.DataContext>
+        <local:MainWindowViewModel/>
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+
+        <Button Grid.Row="0" Command="{Binding HiButtonCommand}" 
+        CommandParameter="Hai" Content="{Binding HiButtonContent}"
+                Width="100"
+                Height="100"  />
+
+        <Button Grid.Row="1" Content="Toggle Can Click" 
+        Command="{Binding ToggleExecuteCommand}"  Width="100" Height="100"/>
+    </Grid>
+
+</Window>
+```
+
+**TheViewModel**
+
+```cs
+class MainWindowViewModel
+    {
+        private ICommand hiButtonCommand;
+
+        private ICommand toggleExecuteCommand { get; set; }
+
+        private bool canExecute = true;
+
+        public string HiButtonContent
+        {
+            get
+            {
+                return "click to hi";
+            }
+        }
+
+        public bool CanExecute
+        {
+            get
+            {
+                return this.canExecute;
+            }
+
+            set
+            {
+                if (this.canExecute == value)
+                {
+                    return;
+                }
+
+                this.canExecute = value;
+            }
+        }
+
+        public ICommand ToggleExecuteCommand
+        {
+            get
+            {
+                return toggleExecuteCommand;
+            }
+            set
+            {
+                toggleExecuteCommand = value;
+            }
+        }
+
+        public ICommand HiButtonCommand
+        {
+            get
+            {
+                return hiButtonCommand;
+            }
+            set
+            {
+                hiButtonCommand = value;
+            }
+        }
+
+        public MainWindowViewModel()
+        {
+            HiButtonCommand = new RelayCommand(ShowMessage, param => this.canExecute);
+            toggleExecuteCommand = new RelayCommand(ChangeCanExecute);
+        }
+
+        public void ShowMessage(object obj)
+        {
+            MessageBox.Show(obj.ToString());
+        }
+
+        public void ChangeCanExecute(object obj)
+        {
+            canExecute = !canExecute;
+        }
+    }
+```
+
+Final application looks like this:
+
+![Final_App](./images/Final_app_Screenshot.jpg)
